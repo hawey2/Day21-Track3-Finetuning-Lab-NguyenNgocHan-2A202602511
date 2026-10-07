@@ -206,7 +206,7 @@ cho phép khi bó thời gian (nhưng nộp bài thì để mặc định, `make
 - [ ] B2 dataset miền riêng (`data/CUSTOM_DATASET.md`)
 - [ ] B3 reasoning-trace collapse (mask-only CPU probe done; no trace corpus or GPU eval, `valid_trace_rate` not measured; see `BONUS-CHALLENGE-EN.md`)
 - [ ] B4 quét rank có kiểm soát
-- [ ] B5 HuggingFace Hub — link:
+- [ ] B5 HuggingFace Hub — chưa publish; cần adapter đã train và xác thực Hub
 
 ---
 
@@ -229,3 +229,20 @@ Artefact hiện có: `results/mask_proof.json`, `results/template_check.json`, `
 hiện chưa qua do thiếu đúng bốn artefact GPU: `results/baselines_frozen.json`, `results/runs.csv`,
 `results/verdict.json`, `results/autopsy.json`. Cần chạy NB2 → NB5 trên GPU rồi chạy lại `make verify`;
 không được coi smoke gate là sẵn sàng nộp.
+
+### Nhật ký chạy các bước theo bảng rubric
+
+| Bước | Lệnh / trạng thái lần chạy này | Kết quả |
+|---|---|---|
+| NB1 | `COMPUTE_TIER=CPU .venv/bin/python notebooks/01_data_and_mask.py` | **Hoàn tất**; 3 artefact NB1 được sinh/cập nhật, split 225/25 |
+| NB2 | `COMPUTE_TIER=CPU .venv/bin/python notebooks/02_baselines.py` | **Dừng trước khi đo**: môi trường CPU-only không cài PyTorch (`ModuleNotFoundError: torch`); không sinh baseline đóng băng |
+| NB3 | `COMPUTE_TIER=CPU .venv/bin/python notebooks/03_train_correct.py` | **Dừng trước khi train**: PyTorch không có; không sinh adapter hay dòng `correct` |
+| NB4 | `COMPUTE_TIER=CPU .venv/bin/python notebooks/04_misconfig_autopsy.py` | **Dừng trước khi train**: gói `datasets` không có trong requirements CPU; không sinh các run đối chứng |
+| NB5 | `COMPUTE_TIER=CPU .venv/bin/python notebooks/05_evaluate_and_verdict.py` | **Không thể chạy độc lập**: cần baseline NB2; `baselines_frozen.json` chưa tồn tại |
+| NB6 (tuỳ chọn) | Chưa chạy | Cần adapter đã train từ NB3/NB4 |
+| Verify | `python scripts/verify.py --smoke` / full `python scripts/verify.py` | Smoke 7/7; full gate 14 passed, 4 failures do thiếu artefact NB2–NB5 như liệt kê trên |
+
+Vì vậy bảng số liệu ở trên là **bản nộp một phần, chưa đạt yêu cầu artefact đầy đủ**. Môi trường runtime
+hiện là macOS x86_64 không có `torch`, CUDA hay MPS; không thể tạo baseline/model training/evaluation
+thật ở đây. Cần tiếp tục trên Colab T4: chạy theo thứ tự `make nb2`, `make nb3`, `make nb4`, `make nb5`
+(hoặc `make pipeline` sau khi mở tab Colab mới), giữ eval đầy đủ và `EPOCHS=2`, rồi `make verify`.
