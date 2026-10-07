@@ -4,6 +4,10 @@
 > 2026 deck (Part A: pretrain → mid-train → post-train → optimizers → architecture).
 > Record results in the Appendix of `submission/REPORT.md`.
 
+> **Run status (2026-10-07):** CPU checks and the B3 mask comparison are recorded below.
+> GPU-dependent training/evaluation challenges are not claimed complete: this run has no
+> GPU, and `results/` does not contain trained adapters or NB2–NB5 evaluation artefacts.
+
 ---
 
 ## B1 — Merge & multi-adapter serving (+3) · deck §23
@@ -37,10 +41,27 @@ MASK_MODE=assistant-only make nb3 && make nb5   # record valid_trace_rate
 MASK_MODE=response-only  make nb3 && make nb5   # record valid_trace_rate
 ```
 
-| MASK_MODE | target | **valid_trace_rate** | regression |
-|---|---|---|---|
-| assistant-only | | | |
-| response-only | | | |
+### Local check (CPU; mask only, not the bonus experiment)
+
+On the shipped 250-example corpus and `Qwen/Qwen3.5-0.8B`, the first training example
+produced the same mask in both modes: **37/94 supervised tokens (0.3936)**, with identical
+decoded supervised text. This agrees with the repository's documented caveat: the shipped
+answers are bare JSON and the empty `<think></think>` scaffold is part of the generation
+prefix, so there is no reasoning trace in the supervised span for `response-only` to
+exclude. NB1's `mask_proof.json` intentionally records the standard `assistant-only` proof;
+the direct comparison was made with `labkit.data.build_example()` for both modes.
+
+| MASK_MODE | Mask on first sample | target | **valid_trace_rate** | regression | Status |
+|---|---:|---:|---:|---:|---|
+| assistant-only | 37/94 (0.3936) | not measured | not measured | not measured | mask checked; no GPU training/eval |
+| response-only | 37/94 (0.3936), identical to assistant-only | not measured | not measured | not measured | mask checked; no GPU training/eval |
+
+**Conclusion:** This does not reproduce reasoning-trace collapse. It confirms the two mask
+modes are a no-op on this corpus, so comparing their `target` or `valid_trace_rate` after
+training would not test the intended hypothesis. No adapter was trained and no NB5 metric
+was produced. To complete B3, use a decontaminated custom corpus with actual reasoning
+traces inside assistant answers, verify NB1 shows a difference between the masks, then
+train and evaluate both runs on GPU with the same base, split, and step budget.
 
 **Question:** did `target` rise while `valid_trace_rate` fell? If you had only looked at
 `target`, would you have noticed?
